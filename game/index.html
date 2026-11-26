@@ -1,0 +1,1027 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>AETHER // Infinite Aim Trainer</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Google Fonts: Inter & JetBrains Mono for crisp HUD numbers -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
+    <!-- Phosphor Icons for clean UI glyphs -->
+    <script src="https://unpkg.com/@phosphor-icons/web"></script>
+
+    <style>
+        :root {
+            --bg-dark: #090b10;
+            --panel-bg: rgba(15, 19, 28, 0.82);
+            --border-subtle: rgba(255, 255, 255, 0.08);
+        }
+
+        * {
+            box-sizing: border-box;
+            user-select: none;
+            -webkit-user-select: none;
+            -webkit-touch-callout: none;
+        }
+
+        body, html {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            background-color: var(--bg-dark);
+            font-family: 'Inter', sans-serif;
+            color: #f8fafc;
+        }
+
+        .font-mono-tabular {
+            font-family: 'JetBrains Mono', monospace;
+            font-variant-numeric: tabular-nums;
+        }
+
+        /* Hide default cursor inside the shooting arena on desktop */
+        #arena-wrapper.has-custom-cursor {
+            cursor: none;
+        }
+
+        /* Glassmorphism HUD & Controls */
+        .glass-bar {
+            background: var(--panel-bg);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid var(--border-subtle);
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.45);
+        }
+
+        /* Custom Color Swatch Radio */
+        .color-swatch {
+            transition: transform 0.15s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.15s ease;
+        }
+        .color-swatch:hover {
+            transform: scale(1.12);
+        }
+        .color-swatch.active {
+            transform: scale(1.18);
+            box-shadow: 0 0 0 2px #090b10, 0 0 0 4px currentColor;
+        }
+
+        /* Subtle button press micro-interaction */
+        .btn-tactile {
+            transition: all 0.12s ease;
+        }
+        .btn-tactile:active {
+            transform: scale(0.95);
+        }
+    </style>
+</head>
+<body class="flex flex-col h-screen w-screen overflow-hidden">
+
+    <!-- TOP HUD BAR -->
+    <header class="fixed top-3 left-3 right-3 sm:top-4 sm:left-6 sm:right-6 z-20 flex flex-wrap items-center justify-between gap-2 pointer-events-none">
+        <!-- Brand / Title Pill -->
+        <div class="glass-bar rounded-xl px-3.5 py-2 flex items-center gap-2.5 pointer-events-auto">
+            <div class="w-2.5 h-2.5 rounded-full bg-cyan-400 animate-pulse shadow-[0_0_8px_#22d3ee]"></div>
+            <span class="font-bold tracking-wider text-xs sm:text-sm text-slate-200 uppercase">Aether<span class="text-slate-500 font-normal ml-1">Aim</span></span>
+        </div>
+
+        <!-- Live Stats Cluster -->
+        <div class="glass-bar rounded-xl px-3 py-1.5 sm:px-5 sm:py-2 flex items-center gap-3 sm:gap-6 pointer-events-auto mx-auto sm:mx-0">
+            <!-- Hits -->
+            <div class="flex flex-col items-center">
+                <span class="text-[10px] uppercase tracking-widest text-slate-400 font-semibold">Hits</span>
+                <span id="stat-hits" class="font-mono-tabular text-base sm:text-xl font-bold text-white leading-tight">0</span>
+            </div>
+
+            <div class="h-6 w-px bg-white/10"></div>
+
+            <!-- Accuracy -->
+            <div class="flex flex-col items-center">
+                <span class="text-[10px] uppercase tracking-widest text-slate-400 font-semibold">Accuracy</span>
+                <span id="stat-accuracy" class="font-mono-tabular text-base sm:text-xl font-bold text-emerald-400 leading-tight">100%</span>
+            </div>
+
+            <div class="h-6 w-px bg-white/10"></div>
+
+            <!-- Targets Per Minute (TPM) -->
+            <div class="flex flex-col items-center">
+                <span class="text-[10px] uppercase tracking-widest text-slate-400 font-semibold">TPM</span>
+                <span id="stat-tpm" class="font-mono-tabular text-base sm:text-xl font-bold text-cyan-400 leading-tight">0</span>
+            </div>
+
+            <div class="h-6 w-px bg-white/10 hidden xs:block"></div>
+
+            <!-- Current Streak -->
+            <div class="flex flex-col items-center">
+                <span class="text-[10px] uppercase tracking-widest text-slate-400 font-semibold">Streak</span>
+                <span id="stat-streak" class="font-mono-tabular text-base sm:text-xl font-bold text-amber-400 leading-tight">0</span>
+            </div>
+
+            <div class="h-6 w-px bg-white/10 hidden md:block"></div>
+
+            <!-- Avg Reaction / Split Time -->
+            <div class="hidden md:flex flex-col items-center">
+                <span class="text-[10px] uppercase tracking-widest text-slate-400 font-semibold">Avg Split</span>
+                <span id="stat-split" class="font-mono-tabular text-base sm:text-xl font-bold text-slate-300 leading-tight">--ms</span>
+            </div>
+        </div>
+
+        <!-- Reset Button -->
+        <button id="btn-reset" title="Reset Statistics (R)" class="glass-bar btn-tactile rounded-xl px-3.5 py-2 flex items-center gap-1.5 text-xs sm:text-sm font-medium text-slate-300 hover:text-white hover:border-white/20 pointer-events-auto cursor-pointer">
+            <i class="ph ph-arrow-counter-clockwise text-base"></i>
+            <span class="hidden sm:inline">Reset</span>
+        </button>
+    </header>
+
+    <!-- MAIN FULL-VIEWPORT SHOOTING ARENA -->
+    <main id="arena-wrapper" class="relative flex-1 w-full h-full overflow-hidden has-custom-cursor">
+        <canvas id="aim-canvas" class="block w-full h-full touch-none"></canvas>
+    </main>
+
+    <!-- BOTTOM CUSTOMIZATION BAR -->
+    <footer class="fixed bottom-3 left-1/2 -translate-x-1/2 sm:bottom-5 z-20 w-[94%] max-w-xl pointer-events-none">
+        <div class="glass-bar rounded-2xl px-4 py-2.5 flex flex-wrap items-center justify-between gap-3 pointer-events-auto">
+            
+            <!-- Target Size Selector -->
+            <div class="flex items-center gap-1.5">
+                <span class="text-xs text-slate-400 font-medium mr-1 hidden sm:inline">Size</span>
+                <div class="flex bg-black/40 p-1 rounded-lg border border-white/5" role="group" aria-label="Target Size">
+                    <button data-size="small" class="size-btn btn-tactile px-2.5 py-1 rounded-md text-xs font-semibold text-slate-400 hover:text-white cursor-pointer">S</button>
+                    <button data-size="medium" class="size-btn btn-tactile px-2.5 py-1 rounded-md text-xs font-semibold bg-white/15 text-white shadow-sm cursor-pointer">M</button>
+                    <button data-size="large" class="size-btn btn-tactile px-2.5 py-1 rounded-md text-xs font-semibold text-slate-400 hover:text-white cursor-pointer">L</button>
+                </div>
+            </div>
+
+            <div class="h-5 w-px bg-white/10"></div>
+
+            <!-- Target Color Swatches -->
+            <div class="flex items-center gap-2.5" role="group" aria-label="Target Color">
+                <span class="text-xs text-slate-400 font-medium hidden sm:inline">Color</span>
+                <button data-color="cyan" style="background-color: #06b6d4; color: #22d3ee;" class="color-swatch active w-5 h-5 rounded-full cursor-pointer" title="Cyan"></button>
+                <button data-color="rose" style="background-color: #f43f5e; color: #fb7185;" class="color-swatch w-5 h-5 rounded-full cursor-pointer" title="Crimson"></button>
+                <button data-color="amber" style="background-color: #f59e0b; color: #fbbf24;" class="color-swatch w-5 h-5 rounded-full cursor-pointer" title="Amber"></button>
+                <button data-color="emerald" style="background-color: #10b981; color: #34d399;" class="color-swatch w-5 h-5 rounded-full cursor-pointer" title="Emerald"></button>
+                <button data-color="violet" style="background-color: #8b5cf6; color: #a78bfa;" class="color-swatch w-5 h-5 rounded-full cursor-pointer" title="Violet"></button>
+            </div>
+
+            <div class="h-5 w-px bg-white/10"></div>
+
+            <!-- Target Count & Sound Toggle -->
+            <div class="flex items-center gap-2">
+                <!-- Target Count Toggle (3, 4, 5) -->
+                <button id="btn-count" title="Active Targets on Screen" class="btn-tactile px-2.5 py-1.5 rounded-lg bg-white/5 hover:bg-white/10 border border-white/5 text-xs font-semibold text-slate-300 flex items-center gap-1 cursor-pointer">
+                    <i class="ph ph-circles-three text-sm text-cyan-400"></i>
+                    <span id="label-count">4</span>
+                </button>
+
+                <!-- Sound Mute/Unmute Toggle -->
+                <button id="btn-sound" title="Toggle Audio Feedback" class="btn-tactile p-1.5 rounded-lg bg-white/5 hover:bg-white/10 border border-white/5 text-slate-200 hover:text-white cursor-pointer">
+                    <i id="icon-sound" class="ph ph-speaker-high text-lg text-cyan-400"></i>
+                </button>
+            </div>
+        </div>
+    </footer>
+
+    <script>
+        /**
+         * AETHER // Infinite Aim Trainer
+         * Self-contained high-FPS canvas engine, procedural 3D sphere shading,
+         * particle bursts, screen shake, and Web Audio API synthesizer.
+         */
+        (() => {
+            // --- DOM ELEMENTS ---
+            const canvas = document.getElementById('aim-canvas');
+            const ctx = canvas.getContext('2d', { alpha: false }); // Optimize for opaque background
+            const arenaWrapper = document.getElementById('arena-wrapper');
+
+            // HUD Elements
+            const elHits = document.getElementById('stat-hits');
+            const elAccuracy = document.getElementById('stat-accuracy');
+            const elTpm = document.getElementById('stat-tpm');
+            const elStreak = document.getElementById('stat-streak');
+            const elSplit = document.getElementById('stat-split');
+
+            // Control Elements
+            const btnReset = document.getElementById('btn-reset');
+            const btnSound = document.getElementById('btn-sound');
+            const iconSound = document.getElementById('icon-sound');
+            const btnCount = document.getElementById('btn-count');
+            const labelCount = document.getElementById('label-count');
+            const sizeButtons = document.querySelectorAll('.size-btn');
+            const colorSwatches = document.querySelectorAll('.color-swatch');
+
+            // --- COLOR PALETTES FOR 3D SPHERES ---
+            const COLOR_THEMES = {
+                cyan: {
+                    highlight: '#cffafe',
+                    mid: '#06b6d4',
+                    shadow: '#164e63',
+                    rim: '#22d3ee',
+                    glow: 'rgba(6, 182, 212, 0.35)'
+                },
+                rose: {
+                    highlight: '#ffe4e6',
+                    mid: '#f43f5e',
+                    shadow: '#881337',
+                    rim: '#fb7185',
+                    glow: 'rgba(244, 63, 94, 0.35)'
+                },
+                amber: {
+                    highlight: '#fef3c7',
+                    mid: '#f59e0b',
+                    shadow: '#78350f',
+                    rim: '#fbbf24',
+                    glow: 'rgba(245, 158, 11, 0.35)'
+                },
+                emerald: {
+                    highlight: '#d1fae5',
+                    mid: '#10b981',
+                    shadow: '#064e3b',
+                    rim: '#34d399',
+                    glow: 'rgba(16, 185, 129, 0.35)'
+                },
+                violet: {
+                    highlight: '#ede9fe',
+                    mid: '#8b5cf6',
+                    shadow: '#4c1d95',
+                    rim: '#a78bfa',
+                    glow: 'rgba(139, 92, 246, 0.35)'
+                }
+            };
+
+            const SIZE_PRESETS = {
+                small: 20,
+                medium: 32,
+                large: 46
+            };
+
+            // --- APPLICATION STATE ---
+            const state = {
+                width: window.innerWidth,
+                height: window.innerHeight,
+                dpr: Math.min(window.devicePixelRatio || 1, 2),
+
+                // Settings
+                targetSizeKey: 'medium',
+                targetRadius: SIZE_PRESETS.medium,
+                colorKey: 'cyan',
+                targetCount: 4,
+                soundEnabled: true,
+
+                // Pointer / Crosshair
+                mouseX: window.innerWidth / 2,
+                mouseY: window.innerHeight / 2,
+                pointerActive: false,
+                isTouchDevice: false,
+
+                // Gameplay Entities
+                targets: [],
+                particles: [],
+                ripples: [],
+                missMarkers: [],
+
+                // Screen Shake
+                shakeTime: 0,
+                shakeIntensity: 0,
+
+                // Statistics
+                hits: 0,
+                misses: 0,
+                streak: 0,
+                bestStreak: 0,
+                sessionStartTime: null,
+                lastHitTime: null,
+                splitTimes: []
+            };
+
+            // --- WEB AUDIO API SYNTHESIZER ---
+            class SoundFX {
+                constructor() {
+                    this.ctx = null;
+                }
+
+                init() {
+                    if (!this.ctx) {
+                        const AudioContext = window.AudioContext || window.webkitAudioContext;
+                        if (AudioContext) {
+                            this.ctx = new AudioContext();
+                        }
+                    }
+                    if (this.ctx && this.ctx.state === 'suspended') {
+                        this.ctx.resume();
+                    }
+                }
+
+                // Crisp, punchy 3D bubble/pop sound that pitches up slightly with streak
+                playHit(streak = 0) {
+                    if (!state.soundEnabled) return;
+                    this.init();
+                    if (!this.ctx) return;
+
+                    const now = this.ctx.currentTime;
+
+                    // Subtle pitch escalation capped at +12 semitones for satisfying feedback
+                    const streakSemitones = Math.min(streak, 24) * 0.35;
+                    const pitchMultiplier = Math.pow(2, streakSemitones / 12);
+
+                    // 1. Tonal pop oscillator
+                    const osc = this.ctx.createOscillator();
+                    const gain = this.ctx.createGain();
+                    osc.type = 'sine';
+
+                    const baseFreq = 420 * pitchMultiplier;
+                    osc.frequency.setValueAtTime(baseFreq, now);
+                    osc.frequency.exponentialRampToValueAtTime(baseFreq * 1.9, now + 0.045);
+                    osc.frequency.exponentialRampToValueAtTime(baseFreq * 0.7, now + 0.11);
+
+                    gain.gain.setValueAtTime(0.001, now);
+                    gain.gain.linearRampToValueAtTime(0.28, now + 0.006);
+                    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.12);
+
+                    osc.connect(gain);
+                    gain.connect(this.ctx.destination);
+
+                    osc.start(now);
+                    osc.stop(now + 0.13);
+
+                    // 2. Crisp transient click for zero-latency tactile feel
+                    const clickOsc = this.ctx.createOscillator();
+                    const clickGain = this.ctx.createGain();
+                    clickOsc.type = 'triangle';
+                    clickOsc.frequency.setValueAtTime(1400 * pitchMultiplier, now);
+                    clickOsc.frequency.exponentialRampToValueAtTime(220, now + 0.025);
+
+                    clickGain.gain.setValueAtTime(0.18, now);
+                    clickGain.gain.exponentialRampToValueAtTime(0.001, now + 0.025);
+
+                    clickOsc.connect(clickGain);
+                    clickGain.connect(this.ctx.destination);
+
+                    clickOsc.start(now);
+                    clickOsc.stop(now + 0.03);
+                }
+
+                // Subtle low thud on miss
+                playMiss() {
+                    if (!state.soundEnabled) return;
+                    this.init();
+                    if (!this.ctx) return;
+
+                    const now = this.ctx.currentTime;
+                    const osc = this.ctx.createOscillator();
+                    const gain = this.ctx.createGain();
+
+                    osc.type = 'sawtooth';
+                    osc.frequency.setValueAtTime(135, now);
+                    osc.frequency.exponentialRampToValueAtTime(55, now + 0.09);
+
+                    // Lowpass filter to keep miss sound warm and non-jarring
+                    const filter = this.ctx.createBiquadFilter();
+                    filter.type = 'lowpass';
+                    filter.frequency.setValueAtTime(320, now);
+
+                    gain.gain.setValueAtTime(0.14, now);
+                    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.1);
+
+                    osc.connect(filter);
+                    filter.connect(gain);
+                    gain.connect(this.ctx.destination);
+
+                    osc.start(now);
+                    osc.stop(now + 0.11);
+                }
+            }
+
+            const sfx = new SoundFX();
+
+            // --- RESIZE & CANVAS SETUP ---
+            function handleResize() {
+                state.width = window.innerWidth;
+                state.height = window.innerHeight;
+                state.dpr = Math.min(window.devicePixelRatio || 1, 2);
+
+                canvas.width = Math.floor(state.width * state.dpr);
+                canvas.height = Math.floor(state.height * state.dpr);
+                ctx.setTransform(state.dpr, 0, 0, state.dpr, 0, 0);
+
+                // Clamp existing targets inside new viewport bounds
+                const bounds = getSafeSpawnBounds(state.targetRadius);
+                for (const t of state.targets) {
+                    t.x = Math.max(bounds.minX, Math.min(bounds.maxX, t.x));
+                    t.y = Math.max(bounds.minY, Math.min(bounds.maxY, t.y));
+                }
+            }
+
+            // Keep targets away from top HUD and bottom customization dock
+            function getSafeSpawnBounds(radius) {
+                const padX = Math.max(radius + 24, state.width * 0.06);
+                const topSafe = 92 + radius;
+                const bottomSafe = state.height - (88 + radius);
+
+                return {
+                    minX: padX,
+                    maxX: Math.max(padX + 10, state.width - padX),
+                    minY: topSafe,
+                    maxY: Math.max(topSafe + 10, bottomSafe)
+                };
+            }
+
+            // --- TARGET MANAGEMENT ---
+            function spawnTarget() {
+                const r = state.targetRadius;
+                const bounds = getSafeSpawnBounds(r);
+                const minSep = r * 2.55; // Minimum center-to-center distance to avoid overlap
+
+                let bestX = (bounds.minX + bounds.maxX) / 2;
+                let bestY = (bounds.minY + bounds.maxY) / 2;
+                let foundValid = false;
+
+                // Try up to 60 random candidates to guarantee non-overlapping placement
+                for (let attempt = 0; attempt < 60; attempt++) {
+                    const candidateX = bounds.minX + Math.random() * (bounds.maxX - bounds.minX);
+                    const candidateY = bounds.minY + Math.random() * (bounds.maxY - bounds.minY);
+
+                    let overlaps = false;
+                    for (const other of state.targets) {
+                        const dx = candidateX - other.x;
+                        const dy = candidateY - other.y;
+                        if (dx * dx + dy * dy < minSep * minSep) {
+                            overlaps = true;
+                            break;
+                        }
+                    }
+
+                    if (!overlaps) {
+                        bestX = candidateX;
+                        bestY = candidateY;
+                        foundValid = true;
+                        break;
+                    }
+                }
+
+                // Fallback if screen is super tiny: pick candidate furthest from existing targets
+                if (!foundValid && state.targets.length > 0) {
+                    let maxMinDist = -1;
+                    for (let attempt = 0; attempt < 25; attempt++) {
+                        const cx = bounds.minX + Math.random() * (bounds.maxX - bounds.minX);
+                        const cy = bounds.minY + Math.random() * (bounds.maxY - bounds.minY);
+                        let minDist = Infinity;
+                        for (const other of state.targets) {
+                            const d = Math.hypot(cx - other.x, cy - other.y);
+                            if (d < minDist) minDist = d;
+                        }
+                        if (minDist > maxMinDist) {
+                            maxMinDist = minDist;
+                            bestX = cx;
+                            bestY = cy;
+                        }
+                    }
+                }
+
+                state.targets.push({
+                    x: bestX,
+                    y: bestY,
+                    radius: r,
+                    scale: 0.15, // Pop-in animation start
+                    spawnTime: performance.now(),
+                    pulsePhase: Math.random() * Math.PI * 2
+                });
+            }
+
+            function maintainTargetCount() {
+                while (state.targets.length < state.targetCount) {
+                    spawnTarget();
+                }
+                while (state.targets.length > state.targetCount) {
+                    state.targets.pop();
+                }
+            }
+
+            // --- VISUAL EFFECTS (PARTICLES, RIPPLES, MISS MARKERS) ---
+            function createHitEffects(x, y, radius) {
+                const theme = COLOR_THEMES[state.colorKey];
+
+                // 1. Expanding shockwave ripple
+                state.ripples.push({
+                    x,
+                    y,
+                    radius: radius * 0.7,
+                    maxRadius: radius * 2.6,
+                    alpha: 0.85,
+                    color: theme.rim
+                });
+
+                // 2. Radial particle burst
+                const particleCount = 16;
+                for (let i = 0; i < particleCount; i++) {
+                    const angle = (Math.PI * 2 * i) / particleCount + (Math.random() - 0.5) * 0.35;
+                    const speed = 140 + Math.random() * 260;
+                    state.particles.push({
+                        x,
+                        y,
+                        vx: Math.cos(angle) * speed,
+                        vy: Math.sin(angle) * speed,
+                        size: 2.2 + Math.random() * 3.5,
+                        alpha: 1,
+                        decay: 2.4 + Math.random() * 1.4,
+                        color: i % 3 === 0 ? theme.highlight : theme.rim
+                    });
+                }
+
+                // 3. Subtle tactile camera shake
+                state.shakeTime = 0.09;
+                state.shakeIntensity = 3.5;
+            }
+
+            function createMissEffect(x, y) {
+                state.missMarkers.push({
+                    x,
+                    y,
+                    alpha: 0.95,
+                    scale: 0.7
+                });
+            }
+
+            // --- SHOOTING / HIT DETECTION ---
+            function handleShot(x, y) {
+                const now = performance.now();
+                if (!state.sessionStartTime) {
+                    state.sessionStartTime = now;
+                }
+
+                // Check targets in reverse order (top-most first)
+                let hitIndex = -1;
+                for (let i = state.targets.length - 1; i >= 0; i--) {
+                    const t = state.targets[i];
+                    const effectiveRadius = t.radius * Math.max(0.85, t.scale);
+                    const dx = x - t.x;
+                    const dy = y - t.y;
+                    if (dx * dx + dy * dy <= effectiveRadius * effectiveRadius) {
+                        hitIndex = i;
+                        break;
+                    }
+                }
+
+                if (hitIndex !== -1) {
+                    // HIT!
+                    const hitTarget = state.targets[hitIndex];
+                    state.targets.splice(hitIndex, 1);
+
+                    state.hits++;
+                    state.streak++;
+                    if (state.streak > state.bestStreak) {
+                        state.bestStreak = state.streak;
+                    }
+
+                    // Track split time between consecutive hits
+                    if (state.lastHitTime) {
+                        const split = now - state.lastHitTime;
+                        if (split < 5000) { // Ignore idle pauses > 5s
+                            state.splitTimes.push(split);
+                            if (state.splitTimes.length > 30) state.splitTimes.shift();
+                        }
+                    }
+                    state.lastHitTime = now;
+
+                    sfx.playHit(state.streak);
+                    createHitEffects(hitTarget.x, hitTarget.y, hitTarget.radius);
+
+                    // Immediately spawn replacement target
+                    spawnTarget();
+                } else {
+                    // MISS!
+                    state.misses++;
+                    state.streak = 0;
+                    sfx.playMiss();
+                    createMissEffect(x, y);
+                }
+
+                updateHUD();
+            }
+
+            // --- HUD & STATS UPDATES ---
+            function updateHUD() {
+                elHits.textContent = state.hits;
+
+                const totalShots = state.hits + state.misses;
+                const acc = totalShots === 0 ? 100 : Math.round((state.hits / totalShots) * 100);
+                elAccuracy.textContent = `${acc}%`;
+
+                // Color-code accuracy feedback
+                if (acc >= 90) {
+                    elAccuracy.className = 'font-mono-tabular text-base sm:text-xl font-bold text-emerald-400 leading-tight';
+                } else if (acc >= 75) {
+                    elAccuracy.className = 'font-mono-tabular text-base sm:text-xl font-bold text-amber-400 leading-tight';
+                } else {
+                    elAccuracy.className = 'font-mono-tabular text-base sm:text-xl font-bold text-rose-400 leading-tight';
+                }
+
+                elStreak.textContent = state.streak;
+
+                // Calculate Targets Per Minute (TPM)
+                if (state.sessionStartTime && state.hits > 0) {
+                    const elapsedMinutes = Math.max((performance.now() - state.sessionStartTime) / 60000, 0.015);
+                    const tpm = Math.round(state.hits / elapsedMinutes);
+                    elTpm.textContent = tpm;
+                } else {
+                    elTpm.textContent = '0';
+                }
+
+                // Calculate Average Split Time
+                if (state.splitTimes.length > 0) {
+                    const avg = Math.round(state.splitTimes.reduce((a, b) => a + b, 0) / state.splitTimes.length);
+                    elSplit.textContent = `${avg}ms`;
+                } else {
+                    elSplit.textContent = '--ms';
+                }
+            }
+
+            function resetStats() {
+                state.hits = 0;
+                state.misses = 0;
+                state.streak = 0;
+                state.bestStreak = 0;
+                state.sessionStartTime = null;
+                state.lastHitTime = null;
+                state.splitTimes = [];
+                state.missMarkers = [];
+                updateHUD();
+            }
+
+            // --- RENDERING PIPELINE ---
+            function drawGridBackground() {
+                // Deep dark slate base
+                ctx.fillStyle = '#090b10';
+                ctx.fillRect(0, 0, state.width, state.height);
+
+                // Subtle radial vignette glow in center
+                const bgGrad = ctx.createRadialGradient(
+                    state.width * 0.5, state.height * 0.5, 40,
+                    state.width * 0.5, state.height * 0.5, Math.max(state.width, state.height) * 0.75
+                );
+                bgGrad.addColorStop(0, '#111622');
+                bgGrad.addColorStop(1, '#07090d');
+                ctx.fillStyle = bgGrad;
+                ctx.fillRect(0, 0, state.width, state.height);
+
+                // Precision tactical grid
+                const gridSize = 48;
+                ctx.strokeStyle = 'rgba(255, 255, 255, 0.032)';
+                ctx.lineWidth = 1;
+                ctx.beginPath();
+
+                for (let x = (state.width % gridSize) / 2; x < state.width; x += gridSize) {
+                    ctx.moveTo(x, 0);
+                    ctx.lineTo(x, state.height);
+                }
+                for (let y = (state.height % gridSize) / 2; y < state.height; y += gridSize) {
+                    ctx.moveTo(0, y);
+                    ctx.lineTo(state.width, y);
+                }
+                ctx.stroke();
+
+                // Subtle grid intersection dots for spatial depth
+                ctx.fillStyle = 'rgba(255, 255, 255, 0.07)';
+                for (let x = (state.width % gridSize) / 2; x < state.width; x += gridSize) {
+                    for (let y = (state.height % gridSize) / 2; y < state.height; y += gridSize) {
+                        ctx.fillRect(x - 0.75, y - 0.75, 1.5, 1.5);
+                    }
+                }
+            }
+
+            function drawSphereTarget(target, time) {
+                const theme = COLOR_THEMES[state.colorKey];
+                const r = target.radius * target.scale;
+                if (r <= 1) return;
+
+                const x = target.x;
+                const y = target.y;
+
+                ctx.save();
+
+                // 1. Ambient outer glow
+                const outerGlow = ctx.createRadialGradient(x, y, r * 0.6, x, y, r * 1.45);
+                outerGlow.addColorStop(0, theme.glow);
+                outerGlow.addColorStop(1, 'rgba(0, 0, 0, 0)');
+                ctx.fillStyle = outerGlow;
+                ctx.beginPath();
+                ctx.arc(x, y, r * 1.45, 0, Math.PI * 2);
+                ctx.fill();
+
+                // 2. Grounded drop shadow for 3D elevation
+                ctx.fillStyle = 'rgba(0, 0, 0, 0.45)';
+                ctx.beginPath();
+                ctx.arc(x + r * 0.14, y + r * 0.22, r * 0.96, 0, Math.PI * 2);
+                ctx.fill();
+
+                // 3. Main 3D shaded sphere gradient (top-left key light)
+                const sphereGrad = ctx.createRadialGradient(
+                    x - r * 0.34, y - r * 0.34, r * 0.06,
+                    x, y, r
+                );
+                sphereGrad.addColorStop(0, theme.highlight);
+                sphereGrad.addColorStop(0.28, theme.mid);
+                sphereGrad.addColorStop(0.85, theme.shadow);
+                sphereGrad.addColorStop(1, '#04070d');
+
+                ctx.fillStyle = sphereGrad;
+                ctx.beginPath();
+                ctx.arc(x, y, r, 0, Math.PI * 2);
+                ctx.fill();
+
+                // 4. Crisp specular highlight reflection
+                ctx.fillStyle = 'rgba(255, 255, 255, 0.65)';
+                ctx.beginPath();
+                ctx.ellipse(
+                    x - r * 0.32,
+                    y - r * 0.32,
+                    r * 0.22,
+                    r * 0.13,
+                    -Math.PI / 4,
+                    0,
+                    Math.PI * 2
+                );
+                ctx.fill();
+
+                // 5. Subtle rim light edge for sharp silhouette readability
+                ctx.strokeStyle = theme.rim;
+                ctx.lineWidth = 1.25;
+                ctx.globalAlpha = 0.65;
+                ctx.beginPath();
+                ctx.arc(x, y, r - 0.6, 0, Math.PI * 2);
+                ctx.stroke();
+
+                ctx.restore();
+            }
+
+            function drawCrosshair() {
+                if (state.isTouchDevice || !state.pointerActive) return;
+
+                const x = state.mouseX;
+                const y = state.mouseY;
+
+                ctx.save();
+                ctx.translate(x, y);
+
+                // Crisp high-contrast crosshair with dark outline for visibility over bright spheres
+                const gap = 5;
+                const len = 8;
+
+                ctx.lineCap = 'round';
+
+                // Outer dark stroke
+                ctx.strokeStyle = 'rgba(0, 0, 0, 0.85)';
+                ctx.lineWidth = 3.5;
+                ctx.beginPath();
+                ctx.moveTo(-gap - len, 0); ctx.lineTo(-gap, 0);
+                ctx.moveTo(gap, 0); ctx.lineTo(gap + len, 0);
+                ctx.moveTo(0, -gap - len); ctx.lineTo(0, -gap);
+                ctx.moveTo(0, gap); ctx.lineTo(0, gap + len);
+                ctx.stroke();
+
+                // Inner bright white lines
+                ctx.strokeStyle = '#ffffff';
+                ctx.lineWidth = 1.6;
+                ctx.beginPath();
+                ctx.moveTo(-gap - len, 0); ctx.lineTo(-gap, 0);
+                ctx.moveTo(gap, 0); ctx.lineTo(gap + len, 0);
+                ctx.moveTo(0, -gap - len); ctx.lineTo(0, -gap);
+                ctx.moveTo(0, gap); ctx.lineTo(0, gap + len);
+                ctx.stroke();
+
+                // Center pinpoint dot
+                ctx.fillStyle = '#22d3ee';
+                ctx.beginPath();
+                ctx.arc(0, 0, 1.8, 0, Math.PI * 2);
+                ctx.fill();
+
+                ctx.restore();
+            }
+
+            // --- MAIN ANIMATION LOOP ---
+            let lastFrameTime = performance.now();
+            let hudTickTimer = 0;
+
+            function loop(now) {
+                const dt = Math.min((now - lastFrameTime) / 1000, 0.05);
+                lastFrameTime = now;
+
+                // Update live TPM readout smoothly every 250ms
+                hudTickTimer += dt;
+                if (hudTickTimer >= 0.25) {
+                    hudTickTimer = 0;
+                    if (state.sessionStartTime && state.hits > 0) {
+                        const elapsedMinutes = Math.max((now - state.sessionStartTime) / 60000, 0.015);
+                        elTpm.textContent = Math.round(state.hits / elapsedMinutes);
+                    }
+                }
+
+                // Update target pop-in spring animation
+                for (const t of state.targets) {
+                    if (t.scale < 1) {
+                        t.scale += (1 - t.scale) * Math.min(1, dt * 24);
+                        if (1 - t.scale < 0.005) t.scale = 1;
+                    }
+                    // Smooth radius interpolation if user switches size mid-session
+                    t.radius += (state.targetRadius - t.radius) * Math.min(1, dt * 18);
+                }
+
+                // Update ripples
+                for (let i = state.ripples.length - 1; i >= 0; i--) {
+                    const rip = state.ripples[i];
+                    rip.radius += (rip.maxRadius - rip.radius) * Math.min(1, dt * 14);
+                    rip.alpha -= dt * 3.2;
+                    if (rip.alpha <= 0) {
+                        state.ripples.splice(i, 1);
+                    }
+                }
+
+                // Update particles
+                for (let i = state.particles.length - 1; i >= 0; i--) {
+                    const p = state.particles[i];
+                    p.x += p.vx * dt;
+                    p.y += p.vy * dt;
+                    p.vx *= Math.pow(0.06, dt); // Air drag
+                    p.vy *= Math.pow(0.06, dt);
+                    p.alpha -= p.decay * dt;
+                    if (p.alpha <= 0) {
+                        state.particles.splice(i, 1);
+                    }
+                }
+
+                // Update miss markers
+                for (let i = state.missMarkers.length - 1; i >= 0; i--) {
+                    const m = state.missMarkers[i];
+                    m.alpha -= dt * 2.2;
+                    m.scale += (1 - m.scale) * Math.min(1, dt * 16);
+                    if (m.alpha <= 0) {
+                        state.missMarkers.splice(i, 1);
+                    }
+                }
+
+                // Screen shake offset
+                ctx.save();
+                if (state.shakeTime > 0) {
+                    state.shakeTime -= dt;
+                    const mag = state.shakeIntensity * (state.shakeTime / 0.09);
+                    const sx = (Math.random() - 0.5) * 2 * mag;
+                    const sy = (Math.random() - 0.5) * 2 * mag;
+                    ctx.translate(sx, sy);
+                }
+
+                // 1. Background Grid
+                drawGridBackground();
+
+                // 2. Miss Markers (Red X)
+                for (const m of state.missMarkers) {
+                    ctx.save();
+                    ctx.translate(m.x, m.y);
+                    ctx.scale(m.scale, m.scale);
+                    ctx.globalAlpha = Math.max(0, m.alpha);
+                    ctx.strokeStyle = '#f43f5e';
+                    ctx.lineWidth = 2.5;
+                    ctx.lineCap = 'round';
+                    const s = 6;
+                    ctx.beginPath();
+                    ctx.moveTo(-s, -s); ctx.lineTo(s, s);
+                    ctx.moveTo(s, -s); ctx.lineTo(-s, s);
+                    ctx.stroke();
+                    ctx.restore();
+                }
+
+                // 3. Shockwave Ripples
+                for (const rip of state.ripples) {
+                    ctx.save();
+                    ctx.globalAlpha = Math.max(0, rip.alpha);
+                    ctx.strokeStyle = rip.color;
+                    ctx.lineWidth = 2;
+                    ctx.beginPath();
+                    ctx.arc(rip.x, rip.y, rip.radius, 0, Math.PI * 2);
+                    ctx.stroke();
+                    ctx.restore();
+                }
+
+                // 4. Spherical Targets
+                for (const t of state.targets) {
+                    drawSphereTarget(t, now);
+                }
+
+                // 5. Hit Burst Particles
+                for (const p of state.particles) {
+                    ctx.save();
+                    ctx.globalAlpha = Math.max(0, p.alpha);
+                    ctx.fillStyle = p.color;
+                    ctx.beginPath();
+                    ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+                    ctx.fill();
+                    ctx.restore();
+                }
+
+                ctx.restore();
+
+                // 6. Custom Crosshair (rendered without screen shake for crisp aim)
+                drawCrosshair();
+
+                requestAnimationFrame(loop);
+            }
+
+            // --- EVENT LISTENERS ---
+            window.addEventListener('resize', handleResize);
+
+            // Pointer tracking for custom crosshair
+            arenaWrapper.addEventListener('pointermove', (e) => {
+                if (e.pointerType === 'touch') {
+                    state.isTouchDevice = true;
+                    arenaWrapper.classList.remove('has-custom-cursor');
+                    return;
+                }
+                state.isTouchDevice = false;
+                arenaWrapper.classList.add('has-custom-cursor');
+                state.pointerActive = true;
+                const rect = canvas.getBoundingClientRect();
+                state.mouseX = e.clientX - rect.left;
+                state.mouseY = e.clientY - rect.top;
+            });
+
+            arenaWrapper.addEventListener('pointerleave', () => {
+                state.pointerActive = false;
+            });
+
+            // Zero-latency shot registration on pointerdown
+            canvas.addEventListener('pointerdown', (e) => {
+                if (e.button !== 0 && e.pointerType === 'mouse') return; // Left-click or touch only
+                const rect = canvas.getBoundingClientRect();
+                const x = e.clientX - rect.left;
+                const y = e.clientY - rect.top;
+                state.mouseX = x;
+                state.mouseY = y;
+                handleShot(x, y);
+            });
+
+            // Size Controls
+            sizeButtons.forEach(btn => {
+                btn.addEventListener('click', () => {
+                    const sizeKey = btn.dataset.size;
+                    state.targetSizeKey = sizeKey;
+                    state.targetRadius = SIZE_PRESETS[sizeKey];
+
+                    sizeButtons.forEach(b => {
+                        b.classList.remove('bg-white/15', 'text-white', 'shadow-sm');
+                        b.classList.add('text-slate-400');
+                    });
+                    btn.classList.add('bg-white/15', 'text-white', 'shadow-sm');
+                    btn.classList.remove('text-slate-400');
+                });
+            });
+
+            // Color Swatches
+            colorSwatches.forEach(swatch => {
+                swatch.addEventListener('click', () => {
+                    state.colorKey = swatch.dataset.color;
+                    colorSwatches.forEach(s => s.classList.remove('active'));
+                    swatch.classList.add('active');
+                });
+            });
+
+            // Target Count Cycle (3 -> 4 -> 5 -> 3)
+            btnCount.addEventListener('click', () => {
+                state.targetCount = state.targetCount >= 5 ? 3 : state.targetCount + 1;
+                labelCount.textContent = state.targetCount;
+                maintainTargetCount();
+            });
+
+            // Sound Toggle
+            btnSound.addEventListener('click', () => {
+                state.soundEnabled = !state.soundEnabled;
+                if (state.soundEnabled) {
+                    iconSound.className = 'ph ph-speaker-high text-lg text-cyan-400';
+                    sfx.playHit(0);
+                } else {
+                    iconSound.className = 'ph ph-speaker-slash text-lg text-slate-500';
+                }
+            });
+
+            // Reset Stats
+            btnReset.addEventListener('click', resetStats);
+
+            // Keyboard Shortcut: 'R' to reset stats
+            window.addEventListener('keydown', (e) => {
+                if (e.key.toLowerCase() === 'r') {
+                    resetStats();
+                }
+            });
+
+            // --- INITIALIZATION ---
+            window.addEventListener('load', () => {
+                handleResize();
+                maintainTargetCount();
+                updateHUD();
+                requestAnimationFrame(loop);
+            });
+        })();
+    </script>
+</body>
+</html>
